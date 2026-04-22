@@ -4,6 +4,8 @@
  */
 
 import { motion } from "motion/react";
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
+
 import { 
   Menu, 
   ChevronLeft, 
@@ -12,11 +14,94 @@ import {
   SkipBack, 
   SkipForward, 
   Shuffle, 
-  Repeat,
-  ArrowRight
+  Repeat
 } from "lucide-react";
 
 // --- Components ---
+
+export const Sparks = forwardRef((_, ref) => {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const particlesRef = useRef<any[]>([]);
+  const requestRef = useRef<number>();
+  
+  // Seguridad: Control de tiempo y límite de partículas
+  const lastTriggerRef = useRef(0);
+  const MAX_PARTICLES = 150; 
+
+  useImperativeHandle(ref, () => ({
+    trigger: (x: number, y: number) => {
+      const now = Date.now();
+      
+      // 1. THROTTLE: Si pasó menos de 100ms desde el último golpe, ignoramos
+      if (now - lastTriggerRef.current < 100) return;
+      
+      // 2. CAP: Si ya hay demasiadas partículas, no agregamos más
+      if (particlesRef.current.length > MAX_PARTICLES) return;
+
+      lastTriggerRef.current = now;
+
+      // Crear chispas
+      for (let i = 0; i < 15; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 4 + 1;
+        particlesRef.current.push({
+          x, y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 2,
+          life: 1,
+          size: Math.random() * 2 + 1,
+          decay: 0.03 + Math.random() * 0.02,
+        });
+      }
+    }
+  }));
+
+  useEffect(() => {
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext("2d")!;
+    
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.globalCompositeOperation = "lighter";
+
+      // Loop inverso para borrar con splice de forma segura
+      for (let i = particlesRef.current.length - 1; i >= 0; i--) {
+        const p = particlesRef.current[i];
+        
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.15; // Gravedad
+        p.life -= p.decay;
+
+        if (p.life <= 0) {
+          particlesRef.current.splice(i, 1);
+          continue;
+        }
+
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(255,140,0,${p.life})`;
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      requestRef.current = requestAnimationFrame(animate);
+    };
+
+    requestRef.current = requestAnimationFrame(animate);
+    return () => {
+      window.removeEventListener("resize", resize);
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="absolute inset-0 z-20 pointer-events-none" />;
+});
 
 const Navbar = () => (
   <nav className="fixed top-0 w-full z-50 bg-black/40 backdrop-blur-xl border-b border-white/5">
@@ -25,7 +110,7 @@ const Navbar = () => (
         <button id="menu-toggle" className="text-white hover:text-brand-orange transition-colors">
           <Menu size={24} />
         </button>
-        <span className="text-2x1 tracking-widest font-black  font-sankofa uppercase">Orfebres</span>
+        <span className="text-2xl tracking-widest font-black font-sankofa uppercase">Orfebres</span>
       </div>
       
       <div className="hidden md:flex gap-12">
@@ -41,43 +126,115 @@ const Navbar = () => (
   </nav>
 );
 
-const Hero = () => (
-  <header className="relative h-screen flex flex-col items-center justify-center overflow-hidden">
-    <div className="absolute inset-0 z-0">
-      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/60 to-surface-black" />
-      <img 
-        src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxZvf2s_3oX-itMuCl4l4QMLqCVFG9wx99Xmm-ViKBY9Yw_qu4JhcomKpuT2T-cs0U8hAoBYK0137rSCwjtbxIbE1JvFs9n45gNt9r8I2W3FLM258fofkAmCLLSUKAR_IRg3M41SZ0FTYdwrjpadFIdKqZEJM9BjtbWjtOpa0UbeEuxNqxFeSbvlJrL2mSyEt-aC_A77DhaJKm7H7kkzGcfigX9Ov3tUWdS0ARzChAXtAnaDCiUyTEDTyFxQRSo3D-Epjz85SFJNSt" 
-        alt="Molten metal forge"
-        className="w-full h-full object-cover opacity-50 mix-blend-luminosity grayscale"
-      />
-    </div>
-    
-    <motion.div 
-      initial={{ opacity: 0, y: 30 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 1.2, ease: "easeOut" }}
-      className="relative z-10 text-center px-6"
-    >
-      <p className="font-mono text-[10px] tracking-[0.5em] text-zinc-500 mb-6 uppercase">FUNDIENDO EL ALMA URBANA</p>
-      <h1 className="text-7xl md:text-9xl font-sankofa mb-4 tracking-widest">ORFEBRES</h1>
-      <p className="text-lg md:text-xl text-zinc-400 italic max-w-xl mx-auto font-light">"Forjando rock desde las entrañas."</p>
-      
-      <div className="mt-12">
-        <button id="hero-action" className="px-10 py-5 border border-white/20 text-white font-mono text-xs tracking-widest hover:bg-white hover:text-black transition-all duration-500 shadow-xl">
-          REPRODUCIR ÚLTIMO SINGLE
-        </button>
-      </div>
-    </motion.div>
+const title = "ORFEBRES";
 
-    <motion.div 
-      animate={{ y: [0, 10, 0] }}
-      transition={{ duration: 2, repeat: Infinity }}
-      className="absolute bottom-12 opacity-30"
-    >
-      <ChevronLeft size={32} className="-rotate-90" />
-    </motion.div>
-  </header>
-);
+const letterVariants = {
+  hidden: { opacity: 0, y: 80, rotateX: -90, filter: "blur(12px)" },
+  show: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    rotateX: 0,
+    filter: "blur(0px)",
+    transition: { duration: 1, delay: i * 0.08, ease: [0.2, 0.8, 0.2, 1] },
+  }),
+};
+
+export const Hero = () => {
+  // Usamos useRef para manipular las chispas sin re-renderizar Hero
+  const sparksRef = useRef<any>(null);
+
+  return (
+    <header className="relative h-screen flex items-center justify-center overflow-hidden bg-black">
+      {/* Pasamos la ref al componente Sparks */}
+      <Sparks ref={sparksRef} />
+
+      <div className="absolute inset-0 z-0">
+        <img
+          src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxZvf2s_3oX-itMuCl4l4QMLqCVFG9wx99Xmm-ViKBY9Yw_qu4JhcomKpuT2T-cs0U8hAoBYK0137rSCwjtbxIbE1JvFs9n45gNt9r8I2W3FLM258fofkAmCLLSUKAR_IRg3M41SZ0FTYdwrjpadFIdKqZEJM9BjtbWjtOpa0UbeEuxNqxFeSbvlJrL2mSyEt-aC_A77DhaJKm7H7kkzGcfigX9Ov3tUWdS0ARzChAXtAnaDCiUyTEDTyFxQRSo3D-Epjz85SFJNSt"
+          alt="Hero Background"
+          className="w-full h-full object-cover opacity-40 grayscale"
+        />
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 0.4, 0] }}
+          transition={{ duration: 1.5 }}
+          className="absolute inset-0 bg-orange-500/15 blur-3xl"
+        />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, scale: 1.1 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 1.4, ease: [0.2, 0.8, 0.2, 1] }}
+        className="relative z-10 text-center px-6"
+        style={{ perspective: 1000 }}
+      >
+        <p className="font-mono text-[10px] tracking-[0.5em] text-zinc-500 mb-6 uppercase">
+          FUNDIENDO EL ALMA URBANA
+        </p>
+
+        <motion.h1
+          initial="hidden"
+          animate="show"
+          className="text-7xl md:text-9xl font-sankofa mb-4 tracking-widest flex justify-center"
+        >
+          {title.split("").map((letter, i) => (
+            <motion.span
+              key={i}
+              custom={i}
+              variants={letterVariants}
+              whileHover={{
+                color: "#ff4d00",
+                textShadow: "0px 0px 25px rgba(255,77,0,0.8)",
+                scale: 1.2,
+              }}
+              onMouseEnter={(e) => {
+                const rect = (e.target as HTMLElement).getBoundingClientRect();
+                // Disparo directo a la función trigger sin re-render de React
+                if (sparksRef.current) {
+                  sparksRef.current.trigger(
+                    rect.left + rect.width / 2,
+                    rect.top + rect.height / 2
+                  );
+                }
+              }}
+              className="inline-block will-change-transform cursor-crosshair"
+            >
+              {letter}
+            </motion.span>
+          ))}
+        </motion.h1>
+
+        <p className="text-lg md:text-xl text-zinc-400 italic max-w-xl mx-auto font-light">
+          "Forjando rock desde las entrañas."
+        </p>
+
+        <motion.button
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.2 }}
+          className="mt-12 px-10 py-5 border border-white/20 text-white font-mono text-xs tracking-widest hover:bg-white hover:text-black transition-all"
+        >
+          REPRODUCIR ÚLTIMO SINGLE
+        </motion.button>
+      </motion.div>
+
+      <motion.div
+        animate={{ x: [0, 1, -1, 0] }}
+        transition={{ duration: 0.2, repeat: Infinity }}
+        className="absolute inset-0 pointer-events-none"
+      />
+
+      <motion.div
+        animate={{ y: [0, 10, 0] }}
+        transition={{ duration: 2, repeat: Infinity }}
+        className="absolute bottom-12 opacity-30"
+      >
+        <ChevronLeft size={32} className="-rotate-90" />
+      </motion.div>
+    </header>
+  );
+};
 
 const About = () => (
   <section id="about" className="py-32 max-w-7xl mx-auto px-6 md:px-12 scroll-mt-24">
@@ -290,18 +447,9 @@ const Gallery = () => {
 };
 
 export const SOCIAL_LINKS = [
-  {
-    name: "Instagram",
-    url: "https://instagram.com/orfebresoficial",
-  },
-  {
-    name: "YouTube",
-    url: "#",
-  },
-  {
-    name: "Spotify",
-    url: "#",
-  },
+  { name: "Instagram", url: "https://instagram.com/orfebresoficial" },
+  { name: "YouTube", url: "#" },
+  { name: "Spotify", url: "#" },
 ];
 
 const Footer = () => (
@@ -317,7 +465,6 @@ const Footer = () => (
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label={`Ir a ${link.name}`}
               className="font-mono text-[10px] tracking-[0.3em] text-zinc-600 hover:text-white transition-all"
             >
               {link.name.toUpperCase()}
@@ -355,4 +502,3 @@ export default function App() {
     </div>
   );
 }
-
