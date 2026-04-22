@@ -289,18 +289,42 @@ const Gallery = () => {
   );
 };
 
+export const SOCIAL_LINKS = [
+  {
+    name: "Instagram",
+    url: "https://instagram.com/orfebresoficial",
+  },
+  {
+    name: "YouTube",
+    url: "#",
+  },
+  {
+    name: "Spotify",
+    url: "#",
+  },
+];
+
 const Footer = () => (
   <footer className="py-24 bg-surface-black border-t border-white/5">
     <div className="max-w-7xl mx-auto px-6 flex flex-col items-center gap-12">
       <span className="text-4xl font-sankofa tracking-[0.3em] font-mono opacity-40">ORFEBRES</span>
       
-      <div className="flex gap-12">
-        {['INSTAGRAM', 'YOUTUBE', 'SPOTIFY'].map((link) => (
-          <a key={link} href="#" className="font-mono text-[10px] tracking-[0.3em] text-zinc-600 hover:text-white transition-all hover:drop-shadow-[0_0_8px_rgba(255,77,0,0.4)]">
-            {link}
-          </a>
-        ))}
-      </div>
+      <nav aria-label="Redes sociales">
+        <div className="flex gap-12">
+          {SOCIAL_LINKS.map((link) => (
+            <a
+              key={link.name}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`Ir a ${link.name}`}
+              className="font-mono text-[10px] tracking-[0.3em] text-zinc-600 hover:text-white transition-all"
+            >
+              {link.name.toUpperCase()}
+            </a>
+          ))}
+        </div>
+      </nav>
 
       <div className="text-center space-y-4">
         <p className="font-mono text-[10px] tracking-[0.4em] text-zinc-500 uppercase leading-loose">
