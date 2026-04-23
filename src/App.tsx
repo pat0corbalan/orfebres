@@ -2,9 +2,9 @@
  * @license
  * SPDX-License-Identifier: Apache-2.0
  */
-
+import React from "react";
 import { motion } from "motion/react";
-import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback } from "react";
 
 import { 
   Menu, 
@@ -14,7 +14,8 @@ import {
   SkipBack, 
   SkipForward, 
   Shuffle, 
-  Repeat
+  Repeat,
+  Pause
 } from "lucide-react";
 
 // --- Components ---
@@ -120,7 +121,7 @@ const Navbar = () => (
       </div>
 
       <button id="cta-listen" className="px-6 py-2 border border-zinc-700 hover:border-brand-orange transition-all font-mono uppercase tracking-[0.2em] text-[10px] text-white">
-        LISTEN NOW
+        REPRODUCIR AHORA
       </button>
     </div>
   </nav>
@@ -272,106 +273,241 @@ const About = () => (
   </section>
 );
 
-const Music = () => (
-  <section id="music" className="py-32 bg-surface-dim scroll-mt-24">
-    <div className="max-w-7xl mx-auto px-6 md:px-12">
-      <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
-        <div>
-          <span className="font-mono text-xs text-zinc-500 mb-4 block tracking-widest uppercase">DISCOGRAFÍA</span>
-          <h2 className="text-4xl md:text-5xl font-bold">LA FORJA ARDIENTE</h2>
-        </div>
-        <div className="flex gap-4">
-          <button className="w-12 h-12 flex items-center justify-center border border-zinc-800 hover:border-zinc-500 transition-colors">
-            <ChevronLeft size={20} />
-          </button>
-          <button className="w-12 h-12 flex items-center justify-center border border-zinc-800 hover:border-zinc-500 transition-colors">
-            <ChevronRight size={20} />
-          </button>
-        </div>
-      </div>
+const TRACKS = [
+  { id: 1, title: "Cenizas al Viento", album: "Escoria & Oro", src: "./music/Audioslave.mp3" },
+  { id: 2, title: "El Martillo", album: "Escoria & Oro", src: "./music/TOOL.mp3" },
+];
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          className="group relative bg-white/5 p-8 etched-border backdrop-blur-md"
-        >
-          <div className="aspect-square overflow-hidden mb-8">
-            <img 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuAotUCH_x1c85rgvsNcn-2V5PM892F6MrS2oz9Px3SXjFWDNxFtn4tlcHAIc7roZrKjduZLfplk0IIqoGpw5PmOqBSmIPvpkehSbWakpe2CDuVeF15V9rbEha328ijnPQZqOHFTyDzI2aeKl_ooFBSJk-kESO-a6ElH5oghLsTEjcXipE7TQOa2LuCsZex5hVxPvufGUKr2f980xpbpG3BCt8xtEhpgG50t0R0qUWXlbMVlEa9XJsAMuizv3Bcg2IhcEdF-wTRP6aJh" 
-              alt="Album cover"
-              className="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-110"
-            />
-          </div>
-          <h3 className="text-2xl font-bold mb-2">Escoria & Oro</h3>
-          <p className="font-mono text-zinc-500 text-[10px] mb-8 tracking-widest uppercase">LP • 2023</p>
-          
-          <div className="space-y-1 mb-10">
-            <div className="flex justify-between items-center py-3 border-b border-white/5 group/track cursor-pointer">
-              <span className="text-sm text-zinc-400 group-hover/track:text-white transition-colors">01. Cenizas al Viento</span>
-              <Play size={12} className="opacity-0 group-hover/track:opacity-100" />
-            </div>
-            <div className="flex justify-between items-center py-3 border-b border-white/5 group/track cursor-pointer">
-              <span className="text-sm text-zinc-400 group-hover/track:text-white transition-colors">02. El Martillo</span>
-              <Play size={12} className="opacity-0 group-hover/track:opacity-100" />
-            </div>
-          </div>
-          
-          <div className="flex gap-4">
-            <button className="flex-1 py-3 border border-zinc-800 text-[10px] font-mono tracking-widest hover:bg-white hover:text-black transition-all">SPOTIFY</button>
-            <button className="flex-1 py-3 border border-zinc-800 text-[10px] font-mono tracking-widest hover:bg-white hover:text-black transition-all">YOUTUBE</button>
-          </div>
-        </motion.div>
+export const Music = () => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [isRepeat, setIsRepeat] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [time, setTime] = useState({ current: 0, total: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const currentTrack = TRACKS[currentIndex];
 
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.98 }}
-          whileInView={{ opacity: 1, scale: 1 }}
-          className="lg:col-span-2 bg-black etched-border p-10 md:p-16 flex flex-col justify-between relative overflow-hidden"
-        >
-          <div className="absolute top-10 right-10 opacity-5">
-             <div className="flex gap-1 items-end">
-                {[1,2,3,4,5,6,3,7,2,5].map((h, i) => (
-                  <motion.div 
-                    key={i}
-                    animate={{ height: [`${h*10}px`, `${h*15}px`, `${h*8}px`] }}
-                    transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
-                    className="w-4 bg-white"
-                  />
-                ))}
-             </div>
-          </div>
-          
+  // Auto-play al cambiar de canción
+  useEffect(() => {
+    if (isPlaying && audioRef.current) {
+      audioRef.current.play().catch(() => {});
+    }
+  }, [currentIndex]);
+
+  // Actualizar progreso y tiempo
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const updateTime = () => {
+      if (!isDragging) {
+        setProgress((audio.currentTime / (audio.duration || 1)) * 100);
+      }
+      setTime({ current: audio.currentTime, total: audio.duration || 0 });
+    };
+
+    const handleEnded = () => {
+      if (isRepeat) {
+        audio.currentTime = 0;
+        audio.play();
+      } else {
+        nextTrack();
+      }
+    };
+
+    audio.addEventListener("timeupdate", updateTime);
+    audio.addEventListener("ended", handleEnded);
+
+    return () => {
+      audio.removeEventListener("timeupdate", updateTime);
+      audio.removeEventListener("ended", handleEnded);
+    };
+  }, [isRepeat, isDragging]);
+
+  // Lógica de arrastre universal (Mouse y Touch)
+  const handleSeek = useCallback((clientX: number) => {
+    if (!progressBarRef.current || !audioRef.current) return;
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const percent = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    setProgress(percent);
+    audioRef.current.currentTime = (percent / 100) * audioRef.current.duration;
+  }, []);
+
+  useEffect(() => {
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      if (!isDragging) return;
+      const clientX = e instanceof MouseEvent ? e.clientX : e.touches[0].clientX;
+      if (e instanceof TouchEvent) e.preventDefault(); // Evita scroll en celular
+      handleSeek(clientX);
+    };
+
+    const handleEnd = () => setIsDragging(false);
+
+    if (isDragging) {
+      window.addEventListener("mousemove", handleMove);
+      window.addEventListener("touchmove", handleMove, { passive: false });
+      window.addEventListener("mouseup", handleEnd);
+      window.addEventListener("touchend", handleEnd);
+    }
+    
+    return () => {
+      window.removeEventListener("mousemove", handleMove);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("mouseup", handleEnd);
+      window.removeEventListener("touchend", handleEnd);
+    };
+  }, [isDragging, handleSeek]);
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) audioRef.current.pause();
+    else audioRef.current.play();
+    setIsPlaying(!isPlaying);
+  };
+
+  const nextTrack = () => {
+    let nextIndex = isShuffle 
+      ? Math.floor(Math.random() * TRACKS.length) 
+      : (currentIndex + 1) % TRACKS.length;
+    setCurrentIndex(nextIndex);
+  };
+
+  const prevTrack = () => {
+    const prevIndex = (currentIndex - 1 + TRACKS.length) % TRACKS.length;
+    setCurrentIndex(prevIndex);
+  };
+
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <section id="music" className="py-32 bg-surface-dim scroll-mt-24">
+      <audio ref={audioRef} src={currentTrack.src} />
+      
+      <div className="max-w-7xl mx-auto px-6 md:px-12">
+        <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
           <div>
-            <span className="font-mono text-[10px] text-brand-orange mb-4 block tracking-[0.3em] uppercase">NOW PLAYING</span>
-            <h4 className="text-4xl md:text-6xl font-bold mb-3">Hierro Colado</h4>
-            <p className="text-zinc-500">Álbum: Escoria & Oro</p>
+            <span className="font-mono text-xs text-zinc-500 mb-4 block tracking-widest uppercase">DISCOGRAFÍA</span>
+            <h2 className="text-4xl md:text-5xl font-bold">LA FORJA ARDIENTE</h2>
           </div>
+          <div className="flex gap-4">
+            <button onClick={prevTrack} className="w-12 h-12 flex items-center justify-center border border-zinc-800 hover:border-zinc-500 transition-colors">
+              <ChevronLeft size={20} />
+            </button>
+            <button onClick={nextTrack} className="w-12 h-12 flex items-center justify-center border border-zinc-800 hover:border-zinc-500 transition-colors">
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        </div>
 
-          <div className="mt-16 md:mt-0">
-            <div className="relative w-full h-[1px] bg-zinc-800 mb-4">
-              <div className="absolute left-0 top-0 h-full w-1/3 bg-white" />
-              <div className="absolute left-1/3 top-1/2 -translate-y-1/2 w-2 h-2 bg-brand-orange rounded-full shadow-[0_0_15px_#ff4d00]" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            className="group relative bg-white/5 p-8 etched-border backdrop-blur-md"
+          >
+            <div className="aspect-square overflow-hidden mb-8">
+              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAotUCH_x1c85rgvsNcn-2V5PM892F6MrS2oz9Px3SXjFWDNxFtn4tlcHAIc7roZrKjduZLfplk0IIqoGpw5PmOqBSmIPvpkehSbWakpe2CDuVeF15V9rbEha328ijnPQZqOHFTyDzI2aeKl_ooFBSJk-kESO-a6ElH5oghLsTEjcXipE7TQOa2LuCsZex5hVxPvufGUKr2f980xpbpG3BCt8xtEhpgG50t0R0qUWXlbMVlEa9XJsAMuizv3Bcg2IhcEdF-wTRP6aJh" alt="Album cover" className="w-full h-full object-cover grayscale transition-transform duration-700 group-hover:scale-110" />
             </div>
-            <div className="flex justify-between font-mono text-[10px] text-zinc-600 tracking-widest">
-              <span>01:42</span>
-              <span>04:15</span>
+            <h3 className="text-2xl font-bold mb-2">Escoria & Oro</h3>
+            <p className="font-mono text-zinc-500 text-[10px] mb-8 tracking-widest uppercase">LP • 2023</p>
+            
+            <div className="space-y-1 mb-10">
+              {TRACKS.map((track, i) => (
+                <div 
+                  key={track.id} 
+                  onClick={() => setCurrentIndex(i)}
+                  className="flex justify-between items-center py-3 border-b border-white/5 group/track cursor-pointer"
+                >
+                  <span className={`text-sm transition-colors ${currentIndex === i ? "text-white" : "text-zinc-400 group-hover/track:text-white"}`}>
+                    0{i+1}. {track.title}
+                  </span>
+                  <Play size={12} className="opacity-0 group-hover/track:opacity-100" />
+                </div>
+              ))}
             </div>
             
-            <div className="flex items-center gap-8 md:gap-12 mt-12">
-              <Shuffle size={18} className="text-zinc-500 hover:text-white cursor-pointer" />
-              <SkipBack size={24} className="text-zinc-500 hover:text-white cursor-pointer" />
-              <button className="w-16 h-16 rounded-full border border-white flex items-center justify-center hover:bg-white hover:text-black transition-all group">
-                <Play size={28} fill="currentColor" />
-              </button>
-              <SkipForward size={24} className="text-zinc-500 hover:text-white cursor-pointer" />
-              <Repeat size={18} className="text-zinc-500 hover:text-white cursor-pointer" />
+            <div className="flex gap-4">
+              <button className="flex-1 py-3 border border-zinc-800 text-[10px] font-mono tracking-widest hover:bg-white hover:text-black transition-all">SPOTIFY</button>
+              <button className="flex-1 py-3 border border-zinc-800 text-[10px] font-mono tracking-widest hover:bg-white hover:text-black transition-all">YOUTUBE</button>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.98 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            className="lg:col-span-2 bg-black etched-border p-10 md:p-16 flex flex-col justify-between relative overflow-hidden"
+          >
+            <div className="absolute top-10 right-10 opacity-5">
+               <div className="flex gap-1 items-end">
+                  {[1,2,3,4,5,6,3,7,2,5].map((h, i) => (
+                    <motion.div 
+                      key={i}
+                      animate={{ height: isPlaying ? [`${h*10}px`, `${h*15}px`, `${h*8}px`] : "10px" }}
+                      transition={{ duration: 1, repeat: Infinity, delay: i * 0.1 }}
+                      className="w-4 bg-white"
+                    />
+                  ))}
+               </div>
+            </div>
+            
+            <div>
+              <span className="font-mono text-[10px] text-brand-orange mb-4 block tracking-[0.3em] uppercase">SONANDO AHORA</span>
+              <h4 className="text-4xl md:text-6xl font-bold mb-3">{currentTrack.title}</h4>
+              <p className="text-zinc-500">Álbum: {currentTrack.album}</p>
+            </div>
+
+            <div className="mt-16 md:mt-0">
+              {/* Barra de progreso con Drag Universal (Mouse + Touch) */}
+              <div 
+                ref={progressBarRef}
+                className="relative w-full h-[1px] bg-zinc-800 mb-4 cursor-pointer touch-none" 
+                onMouseDown={(e) => {
+                  setIsDragging(true);
+                  handleSeek(e.clientX);
+                }}
+                onTouchStart={(e) => {
+                  setIsDragging(true);
+                  handleSeek(e.touches[0].clientX);
+                }}
+              >
+                <div className="absolute left-0 top-0 h-full bg-white transition-none" style={{ width: `${progress}%` }} />
+                <div className="absolute top-1/2 -translate-y-1/2 w-2 h-2 bg-brand-orange rounded-full shadow-[0_0_15px_#ff4d00] transition-none" style={{ left: `${progress}%` }} />
+              </div>
+              
+              <div className="flex justify-between font-mono text-[10px] text-zinc-600 tracking-widest">
+                <span>{formatTime(time.current)}</span>
+                <span>{formatTime(time.total)}</span>
+              </div>
+              
+              <div className="flex items-center gap-8 md:gap-12 mt-12 justify-center">
+                <Shuffle size={18} className={`cursor-pointer ${isShuffle ? 'text-white' : 'text-zinc-500'}`} onClick={() => setIsShuffle(!isShuffle)} />
+                <SkipBack size={24} className="text-zinc-500 hover:text-white cursor-pointer" onClick={prevTrack} />
+                
+                <button 
+                  onClick={togglePlay} 
+                  className="w-16 h-16 rounded-full border border-white flex items-center justify-center hover:bg-white hover:text-black transition-all group"
+                >
+                  {isPlaying ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" />}
+                </button>
+                
+                <SkipForward size={24} className="text-zinc-500 hover:text-white cursor-pointer" onClick={nextTrack} />
+                <Repeat size={18} className={`cursor-pointer ${isRepeat ? 'text-white' : 'text-zinc-500'}`} onClick={() => setIsRepeat(!isRepeat)} />
+              </div>
+            </div>
+          </motion.div>
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 const Shows = () => {
   const dates = [
