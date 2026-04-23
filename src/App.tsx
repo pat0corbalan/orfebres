@@ -120,9 +120,13 @@ const Navbar = () => (
         <a href="#shows" className="text-zinc-500 hover:text-white transition-colors font-mono uppercase tracking-[0.2em] text-xs font-medium">GIRA</a>
       </div>
 
-      <button id="cta-listen" className="px-6 py-2 border border-zinc-700 hover:border-brand-orange transition-all font-mono uppercase tracking-[0.2em] text-[10px] text-white">
+      <a
+        href="#music"
+        id="cta-listen"
+        className="px-6 py-2 border border-zinc-700 hover:border-brand-orange transition-all font-mono uppercase tracking-[0.2em] text-[10px] text-white inline-block"
+      >
         REPRODUCIR AHORA
-      </button>
+      </a>
     </div>
   </nav>
 );
@@ -570,10 +574,18 @@ const Gallery = () => {
           {images.map((url, i) => (
             <motion.div 
               key={i}
+              // Hover para PC
               whileHover={{ scale: 1.02 }}
-              className="aspect-square md:aspect-[3/4] overflow-hidden grayscale brightness-50 hover:grayscale-0 hover:brightness-100 transition-all duration-700 cursor-crosshair etched-border"
+              // Tap para móviles (da feedback táctil inmediato)
+              whileTap={{ scale: 0.95 }}
+              // Clase touch-none ayuda a evitar que el scroll se confunda con el tap
+              className="aspect-square md:aspect-[3/4] overflow-hidden grayscale brightness-50 hover:grayscale-0 hover:brightness-100 transition-all duration-700 cursor-pointer etched-border touch-none"
             >
-              <img src={url} alt={`Performance ${i}`} className="w-full h-full object-cover" />
+              <img 
+                src={url} 
+                alt={`Performance ${i}`} 
+                className="w-full h-full object-cover pointer-events-none" 
+              />
             </motion.div>
           ))}
         </div>
